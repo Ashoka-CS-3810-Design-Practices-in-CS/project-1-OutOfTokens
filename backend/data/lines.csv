@@ -1,0 +1,14 @@
+id,name,colour
+RED,Red Line,#EE1C25
+YELLOW,Yellow Line,#FFCC00
+BLUE,Blue Line,#0072CE
+BLUE_BRANCH,Blue Line Branch,#0072CE
+GREEN,Green Line,#00A651
+GREEN_BRANCH,Green Line Branch,#00A651
+VIOLET,Violet Line,#8B3FA0
+MAGENTA,Magenta Line,#CC0066
+PINK,Pink Line,#F49AC1
+AQUA,Aqua Line,#00B2C6
+GRAY,Grey Line,#8C8C8C
+ORANGE,Airport Express (Orange Line),#F7941D
+RAPID,Rapid Metro Gurugram,#2E3192
