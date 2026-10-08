@@ -1,111 +1,232 @@
-# Next Steps — Building the Backend from Where We Are
+# Next Steps — From Here to the Final Submission
 
-A step-by-step guide for continuing the Delhi Metro Route Planner. Read `project context.md` first for the full design; this file says what to build next, in what order, and how to check each step.
+The ordered list of everything left to build. Read `project context.md` first for the full design; this file says what to do next, in what order, and how to check each step.
 
-## Where you are
+Last updated: 8 Oct 2026. Deadlines: **Assignment 3 (Testing, UX, Development Plan) on 12 Oct**, **final project on 16 Oct**.
+
+## Where we are
 
 | Part | State |
 |---|---|
-| `data/*.csv` | Present, and the row counts match (257 stations, 285 nodes, 301 edges: 272 ride + 29 walk) |
-| `metro/network/models.py` | Written, but it doesn't match the design (see Step 1) |
-| `graph.py`, `loader.py`, `validator.py`, all of `routing/`, `service/`, `api/`, `tests/` | Not written yet |
-| `frontend/` | Not created yet |
-| Git | No commits on `main` |
+| `data/*.csv` | Present: 13 lines, 257 stations, 285 nodes, 301 edges (272 ride + 29 walk) |
+| `network/models.py`, `graph.py`, `loader.py` | Done and tested |
+| `routing/cost_models.py` | `TimeCost` done; `InterchangePenaltyCost` not written |
+| `routing/dijkstra.py` | Done and tested; matches the known-good results (New Delhi → ITO 17.0 min, Chandni Chowk → Rajiv Chowk 6.0 min) |
+| `network/validator.py` | Not written |
+| `routing/route_builder.py`, `zero_one_bfs.py`, `planner.py` | Not written |
+| `service/`, `api/` | Empty folders |
+| `frontend/` | Not created |
+| Tests | 28 passing (9 graph, 9 loader, 10 Dijkstra) |
+| Git | Everything above is committed and pushed on `main`; cache files are no longer tracked |
 
-### Two problems in the data and setup
+## The order at a glance
 
-1. **`stations.csv` lost a column.** The last column header is `s` when it should be `coord_source`, and that column is empty in all 257 rows. Get the cleaned file back from wherever you made it, or fix the header and fill the column back in. You'll need it for the task of reviewing the 40 estimated coordinates.
-2. **`src/backend/` was left behind by `uv init`.** It isn't part of the design. You can delete it, and delete the `[project.scripts]` section in `pyproject.toml` that points to it.
+| # | Step | Needed for |
+|---|---|---|
+| 0 | Fix the setup and agree the open decisions | Everything |
+| 1 | Route builder | A working route |
+| 2 | Fewest-interchanges cost model | Second criterion |
+| 3 | Fewest-stations search (0-1 BFS) | Third criterion |
+| 4 | Planner | Routing layer complete |
+| 5 | Validator | Safe start-up |
+| 6 | Service layer | API |
+| 7 | API | Frontend |
+| 8 | Frontend | **A working app, end to end** |
+| 9 | Real data values | Correct answers |
+| 10 | Fare | Feature in the brief |
+| 11 | Deeper testing | Assignment 3 |
+| 12 | Map pan/zoom and station popup | UX |
+| 13 | Robustness and security | Final |
+| 14 | CI | Final |
+| 15 | Submission clean-up | Final |
 
-## Step 0: Make your first commit
+Steps 0–8 give a working app and come first. Steps 9–15 improve it; if time runs short, do them in the order listed and drop from the bottom.
 
-Commit what you have on `main` now so you have a base to branch from. After that, start a new branch for each step below (`git switch -c network-layer`), and open a pull request when the step works.
+**Working in parallel:** Steps 1–7 are backend and Step 8 is frontend. The JSON the API returns is already fixed in section 5 of the context file, so one of us can start the frontend against that shape while the other finishes routing and the API.
 
-## Step 1: Fix `models.py` to match the graph model
+---
 
-Your models describe a simpler graph where an edge joins two stations. The design (section 3 of the context file) says an edge joins two **nodes**, meaning a station on a particular line. Change these:
+## Step 0: Fix the setup and agree the open decisions
 
-- **Add a `Node` class** with three string fields: `id`, `station_id`, `line_id`. The model has no class for nodes at the moment.
-- **Change `Edge`** so it stores IDs (plain strings) instead of whole objects. Its fields should be `edge_id`, `from_node`, `to_node`, `kind` (`"ride"` or `"walk"`), `line_id` (can be `None`, because walk edges have no line), `distance_km`, `time_min`.
-  - *Why IDs and not objects?* The graph keeps one dictionary of every node and looks things up by ID. If each edge carried its own copy of a Station, a station's data would be stored in many places at once.
-  - *Why `kind`?* Without it you can't tell a ride from a walk. Fewest-interchanges, fewest-stations and the route builder all rely on that.
-  - *Why `time_min`?* Every search uses it as the edge weight.
-- **Change `RouteResult`**:
-  - Add a `stations` field. The panel needs the ordered list of stations.
-  - Make every list a `tuple[...]`. The class is frozen, but a list inside it can still be changed.
-  - Store `lines` and `interchanges` as IDs (`tuple[str, ...]`), not objects. The JSON then stays simple.
-  - Rename the totals to `total_time_min` and `total_distance_km` so the units are in the names.
-- **`Line.color` vs. `colour`:** either spelling works, but the CSV uses `colour`. Choose one, and handle the difference in the loader if you keep `color`.
+### Fix: `uv sync` fails on a fresh clone
 
-**Check:** open `uv run python` and create one of each class by hand. Then try to change a field. You should get a `FrozenInstanceError`.
+`backend/pyproject.toml` still has a `[build-system]` section. It tells uv to package `src/backend/`, which was deleted, so `uv sync` stops with "Expected a Python module at: src/backend/__init__.py".
 
-## Step 2: `graph.py`, the container
+Delete these three lines:
 
-Write a `MetroGraph` class that holds six dictionaries: `stations`, `lines`, `nodes`, `nodes_of_station`, `edges_by_id`, `adjacency`. Give it one method that adds an edge, and make that method do two things:
+```toml
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+```
 
-- store the edge in `edges_by_id`
-- append it to the adjacency list of **both** `from_node` and `to_node`
+Nothing else needs them: pytest finds the `metro` folder through `pythonpath = ["."]`.
 
-That second point is what makes the graph undirected. Then add the three helpers:
+**Check:** `uv sync` finishes, and `uv run pytest` reports 28 passed. Until this is fixed, run tests with `.venv/bin/python -m pytest` from `backend/`.
 
-- `edges_of(node_id)` returns `adjacency.get(node_id, [])`
-- `lines_at(station_id)` gets each node of the station and collects its line
-- `is_interchange(station_id)` returns whether the station has more than one node
+### Decide together before building further
 
-**Watch out:** if you store the same Edge object in both directions, a search that reaches a node from `to_node` has to work out the far end itself: "the other end is `from_node` if I'm at `to_node`, otherwise `to_node`". Write a small helper for this, such as `other_end(edge, node_id)`. Getting this wrong is the most common bug in this kind of graph.
+Each of these changes code that later steps depend on, so settle them first.
 
-## Step 3: `loader.py`, CSV to graph
+1. **What `RouteResult` holds.** The code stores whole `Station` and `Line` objects. The design says IDs (`tuple[str, ...]`), which keeps the JSON simple. Decide before Step 1, because the route builder creates this object.
+2. **`coord_source` column.** It was removed from `stations.csv`, so we can no longer tell which 40 coordinates were estimated. Restore it, or drop the "review estimated coordinates" task.
+3. **Station codes.** `Station` has no `code` field and the CSV column is empty. The frontend search was designed to match on code as well as name. Add codes (Step 9) or search by name only.
 
-`load_graph(data_dir)` should:
+### Already decided
 
-1. Read the four files with `csv.DictReader`. Each row comes back as a dict keyed by the header names.
-2. Read them in this order: lines, stations, nodes, edges. Each file refers to things defined in the earlier ones.
-3. Convert the types yourself: `float(row["lat"])`, `float(row["distance_km"])`. An empty `line_id` becomes `None`.
-4. Use `pathlib.Path` for paths so the code works on both Windows and Linux.
+**Ride times will be derived from distance.** Every ride edge has `travel_min = 2` today, whatever its length (0.3 km and 6.4 km both count as 2 minutes), so "fastest" currently means "2 × stops + 5 × changes". This gets fixed in Step 9. Until then, the known-good numbers (17.0, 18.0 and 6.0 minutes) are based on the flat 2 minutes.
 
-Next task #2, the duplicate-ID check, belongs here too. Before you insert anything, check whether the ID is already in the dict, and raise an error if it is.
+### Bring the context file up to date
 
-**Check:** load the graph and print `len(graph.nodes)` (should be 285) and `len(graph.edges_by_id)` (should be 301). Also print `graph.lines_at("RAJIV_CHOWK")`, which should give Yellow and Blue.
+Section 5 of `project context.md` uses names the code doesn't. Fix them there so nobody builds against the wrong ones:
 
-## Step 4: `validator.py`
+| Context file says | The code has |
+|---|---|
+| `Node.id` | `Node.node_id` |
+| `Edge.time_min` | `Edge.travel_min` |
+| `graph.edges_of(node)` | `graph.neighbours(node_id)` |
+| `graph.nodes_of_station[...]` | `graph.nodes_for_station(station_id)` |
+| `graph.lines_at()`, `graph.is_interchange()` | Not written yet (Step 1 needs something like them) |
+| "expect 5 passed" | 28 passed |
 
-Write a `DataError` exception class. In `validate(graph)`, collect every problem in a list and raise **once** at the end, with all of them. That way one run shows you every problem at once. Go through the checks in the order section 5 of the context file gives them. For the connectivity check, start a BFS from any node and confirm it reaches all 285.
+### Working habit from here on
 
-**Check:** the real data should pass. Then copy the data to a temp folder, break one row, and confirm the validator reports it.
+`main` now has real work on it. Start a branch for each step (`git switch -c route-builder`) and open a pull request for the other person to review.
 
-## Step 5: Your first tests, then commit
+---
 
-Create `tests/test_routing.py`, starting with network tests only: the node and edge counts are right, the real data validates, and a broken edge raises `DataError`. Run `uv run pytest`. When it passes, commit, push, and open a pull request.
+## Step 1: `routing/route_builder.py`
 
-## Step 6: Routing, one file at a time
+Dijkstra returns edge IDs such as `['YELLOW_15', 'YELLOW_16', 'WALK_..._YELLOW_VIOLET', 'VIOLET_07']`. The route builder turns that into something a rider can read.
 
-1. **`cost_models.py`**: a `Protocol` with `edge_cost(edge) -> float`, plus the two classes. `InterchangePenaltyCost` adds a big constant on walk edges. That constant makes the search avoid line changes before anything else, and uses time only to break ties.
-2. **`dijkstra.py`**: put **every** node of the source station into the heap at cost 0. Push `(cost, counter, node)` onto the heap. The counter decides ties, so Python never has to compare two node strings. When you pop a node, skip it if it's already visited. Stop as soon as you pop a node whose `station_id` is the destination station. Save `prev[node] = (previous_node, edge_id)`, and write `trace_path` to follow `prev` back to the start and reverse the result.
-   - **Check:** for Chandni Chowk → Rajiv Chowk you should get 3 ride edges.
-3. **`zero_one_bfs.py`**: the same idea, but with a `collections.deque`. A walk costs 0 and goes to the front with `appendleft`. A ride costs 1 and goes to the back with `append`. A node can be reached more than once here, so skip it only when the new distance is no better than the one you already have.
-4. **`route_builder.py`**: walk through the edge IDs in order while tracking your current node. Use the real `time_min`, not the cost model's number. That's how the 10,000 penalty stays out of what the user sees.
-5. **`planner.py`**: run all three searches. Then group the results with a dict keyed by `tuple(edge_ids)`. Two criteria with the same key are the same route, so you show it once with both labels.
+`build_route(graph, criteria, source, edge_ids)` walks the edges in order while tracking the node you are standing at:
 
-**Check after this step:** the known-good results in section 7 of the context file are now your tests:
+- **Ride edge:** append the next station, and its line if it's a new one.
+- **Walk edge:** record the current station as an interchange.
+- **Throughout:** add up the real `travel_min` and `distance_km`, read from the edge itself.
 
-- New Delhi → ITO gives 2 routes: 17.0 min / 6.8 km / 1 change (fastest + fewest interchanges), and 18.0 min / 3.6 km / 2 changes (fewest stations).
-- Chandni Chowk → Rajiv Chowk: 4 stations, 0 changes, 6.0 min, 2.9 km.
+**Watch out:** `graph.edge(edge_id)` gives the edge as written in the CSV, which may point against your direction of travel. Work out the far end yourself: "if I'm at `to_node`, the other end is `from_node`, otherwise it's `to_node`". Your starting node is whichever end of the first edge belongs to the source station.
 
-Write each one as a test.
+**Check:** New Delhi → ITO gives 7 stations, lines Yellow then Violet, one interchange at Central Secretariat, 17.0 min, 6.8 km. Chandni Chowk → Rajiv Chowk gives 4 stations, 0 changes, 6.0 min, 2.9 km. Write both as tests.
 
-## Step 7: Service and API
+## Step 2: `InterchangePenaltyCost`
 
-- **`route_service.py`**: put input checks and the shape of the response here, not in the API file. The API layer only translates the request and response.
-- **`schemas.py` and `main.py`**: load and validate the graph **once**, when the server starts. Turn `RouteError` into a 400 with an `HTTPException`.
-- Add `httpx` as a dev dependency (`uv add --dev httpx`) so you can use FastAPI's `TestClient` in your tests.
-- **Check:** run `uv run uvicorn metro.api.main:app --reload` and try both endpoints at `http://localhost:8000/docs`.
+Add a second class to `cost_models.py`: it returns `travel_min`, plus 10,000 when `edge.kind == "walk"`. Passing it to the existing `dijkstra` gives the fewest-interchanges route with no change to the algorithm. The penalty is so large that the search avoids line changes first and uses time only to break ties.
+
+The route builder reads times from the edges, not from the cost model, so the 10,000 never reaches the user.
+
+**Check:** on a small hand-built graph, a slower route with no change beats a faster route with one.
+
+## Step 3: `routing/zero_one_bfs.py`
+
+Fewest stations. Same shape as Dijkstra, but with a `collections.deque` in place of the heap: a ride costs 1 and goes to the back (`append`), a walk costs 0 and goes to the front (`appendleft`). Start from every node of the source station and stop at the first node of the destination, as Dijkstra does.
+
+A node can be reached more than once here, so skip it only when the new distance is no better than the one you already have.
+
+**Check:** New Delhi → ITO by fewest stations goes via Rajiv Chowk and Mandi House: 18.0 min, 3.6 km, 2 changes.
+
+## Step 4: `routing/planner.py`
+
+`Planner.plan(source, dest)` runs all three searches, builds a route from each, and groups the results in a dict keyed by `tuple(edge_ids)`. Two criteria with the same key are the same route, shown once with both labels. Return an empty list if there is no path.
+
+**Check:** New Delhi → ITO returns two routes: one labelled fastest + fewest interchanges, one labelled fewest stations. This finishes the routing layer.
+
+## Step 5: `network/validator.py`
+
+`MetroGraph` already rejects most bad data as it builds (duplicate IDs, unknown references, rides crossing lines, walks crossing stations). The validator adds the three checks that are missing:
+
+- every walk edge has distance 0
+- every pair of lines at an interchange has a walk edge (Kashmere Gate has 3 lines, so 3 walk edges)
+- the whole network is connected: a BFS from any node reaches all 285
+
+Collect every problem in a list and raise one `DataError` at the end, so a single run shows everything that is wrong.
+
+`MetroGraph` has no public way to list all nodes or all edges. Add `nodes` and `edges` properties to `graph.py`; Step 6 needs them too.
+
+**Check:** the real data passes. Then break a copy (remove one walk edge) and confirm it is reported. The `data_copy` fixture in `tests/test_loader.py` does the copying.
+
+## Step 6: `service/route_service.py`
+
+Input checks and the shape of the response live here, not in the API file.
+
+- `find_routes(source, destination)`: unknown station → `RouteError("unknown_station")`; same station → `RouteError("same_station")`; otherwise call the planner and return `{"status": "ok" | "no_path", "routes": [...]}`.
+- `network_view()`: stations (with their lines), lines, and ride edges only, with node IDs translated to station IDs so the frontend can draw them.
+
+## Step 7: `api/schemas.py` and `api/main.py`
+
+- Load and validate the graph **once**, when the server starts.
+- `GET /api/network` and `POST /api/route`.
+- Turn `RouteError` into HTTP 400 with the error code. Allow CORS from `http://localhost:5173`.
+- Add `httpx` as a dev dependency (`uv add --dev httpx`) so tests can use FastAPI's `TestClient`.
+
+**Check:** `uv run uvicorn metro.api.main:app --reload`, then try both endpoints at `http://localhost:8000/docs`.
 
 ## Step 8: Frontend
 
-Run `npm create vite@latest frontend -- --template react-ts`, then `npm install zustand`. Build in the order section 6 of the context file lists: `types.ts` → `apiClient.ts` → `routeStore.ts` → the components. Write `types.ts` by copying the actual JSON your API returns from `/docs`.
+```bash
+npm create vite@latest frontend -- --template react-ts
+cd frontend && npm install zustand
+```
+
+Build in this order, each file depending only on the ones before it:
+
+1. `types.ts`: copy the shapes from the real JSON at `/docs`.
+2. `apiClient.ts`: the only file that makes network calls; 5-second timeout.
+3. `routeStore.ts`: Zustand store; ignore stale responses using `requestSeq`.
+4. `stationIndex.ts` and `mapGeometry.ts`: station search and lat/lon → SVG projection.
+5. `StationSearch.tsx`, then `RoutePanel.tsx`, then `MetroMap.tsx`.
+6. `App.tsx` and `index.css`.
+
+**Check:** pick New Delhi and ITO in the browser, press Find Route, and see two routes in the panel with the selected one highlighted on the map. **This is the milestone: the app works end to end.**
+
+---
+
+## Step 9: Real data values
+
+- Replace the 29 placeholder walk times (all 5 minutes) with DMRC transfer times.
+- Replace the flat 2-minute ride times with times derived from distance: `time = distance ÷ average speed + dwell time per stop`. Agree the speed and dwell values first (35 km/h and 30 seconds is a starting point) and record them in the context file. This changes `edges.csv` only; the algorithms stay as they are.
+- Station codes and the `coord_source` column, depending on the Step 0 decisions.
+
+**Watch out:** changing any time changes the known-good numbers (17.0, 18.0 and 6.0 minutes) in the tests and in the context file. Update them in the same commit.
+
+## Step 10: Fare
+
+Calculate the fare from `total_distance_km` using the DMRC fare slabs, add it to the route response, and show it in `RoutePanel`.
+
+## Step 11: Deeper testing
+
+- 30 hand-verified station pairs as tests.
+- `pytest-cov`, aiming for at least 80% on `network` and `routing`.
+- A `hypothesis` test that builds random small graphs and compares Dijkstra with a brute-force search.
+
+Assignment 3 covers testing, so the test plan and what is already tested (28 tests) should be written up by 12 Oct even if some of this is still in progress.
+
+## Step 12: Map pan/zoom and station popup
+
+- Pan and zoom with `d3-zoom`, plus a Reset View button. It must not re-render the map or touch the route state.
+- A details popup when a station is clicked.
+
+## Step 13: Robustness and security
+
+- Rate limit of 60 requests a minute (`slowapi`), a 1 KB request body limit, and error handlers for 400, 413, 429 and 503.
+- `apiClient`: one automatic retry, plus a manual Retry button.
+- A data version hash sent with `/api/network`, so a frontend/backend mismatch is detected.
+- All error messages the user sees are plain, non-technical sentences.
+
+## Step 14: CI
+
+GitHub Actions on every pull request: lint, type-check, the layer-import rules, and all tests.
+
+## Step 15: Submission clean-up
+
+- `backend/README.md` is empty: add how to install, run and test.
+- A fresh clone must work by following the README alone. Test this on a clean folder.
+- `project context.md` matches the final code.
+
+---
 
 ## Habits to keep
 
-- Make one small change, then test it (`uv run pytest`), then commit. Don't start the next layer until the current one passes.
+- One small change, then test (`uv run pytest`), then commit. Don't start the next layer until the current one passes.
 - Before every commit, check the import rules: nothing in `network/` imports from `routing/`, and nothing in `routing/` imports FastAPI.
-- Work through the numbered tasks in section 9 of the context file only after Step 7 works end to end. Task #2 (duplicate IDs) is the exception: build it into Step 3.
+- One branch and one pull request per step, reviewed by the other person.
