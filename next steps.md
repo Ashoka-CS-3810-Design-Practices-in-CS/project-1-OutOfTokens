@@ -2,7 +2,7 @@
 
 The ordered list of everything left to build. Read `project context.md` first for the full design; this file says what to do next, in what order, and how to check each step.
 
-Last updated: 8 Oct 2026. Deadlines: **Assignment 3 (Testing, UX, Development Plan) on 12 Oct**, **final project on 16 Oct**.
+Last updated: 9 Oct 2026. Deadlines: **Assignment 3 (Testing, UX, Development Plan) on 12 Oct**, **final project on 16 Oct**.
 
 ## Where we are
 
@@ -10,13 +10,14 @@ Last updated: 8 Oct 2026. Deadlines: **Assignment 3 (Testing, UX, Development Pl
 |---|---|
 | `data/*.csv` | Present: 13 lines, 257 stations, 285 nodes, 301 edges (272 ride + 29 walk) |
 | `network/models.py`, `graph.py`, `loader.py` | Done and tested |
-| `routing/cost_models.py` | `TimeCost` done; `InterchangePenaltyCost` not written |
+| `routing/cost_models.py` | Done and tested: `TimeCost` (fastest) and `InterchangePenaltyCost` (fewest line changes) |
 | `routing/dijkstra.py` | Done and tested; matches the known-good results (New Delhi → ITO 17.0 min, Chandni Chowk → Rajiv Chowk 6.0 min) |
 | `network/validator.py` | Not written |
-| `routing/route_builder.py`, `zero_one_bfs.py`, `planner.py` | Not written |
+| `routing/zero_one_bfs.py` | Done and tested; fewest stations (New Delhi → ITO: 4 rides, 2 changes, 18.0 min) |
+| `routing/route_builder.py`, `planner.py` | Not written |
 | `service/`, `api/` | Empty folders |
 | `frontend/` | Not created |
-| Tests | 28 passing (9 graph, 9 loader, 10 Dijkstra) |
+| Tests | 41 passing (9 graph, 9 loader, 13 Dijkstra with both cost models, 10 fewest-stations search) |
 | Git | Everything above is committed and pushed on `main`; cache files are no longer tracked |
 
 ## The order at a glance
@@ -25,8 +26,8 @@ Last updated: 8 Oct 2026. Deadlines: **Assignment 3 (Testing, UX, Development Pl
 |---|---|---|
 | 0 | Fix the setup and agree the open decisions | Everything |
 | 1 | Route builder | A working route |
-| 2 | Fewest-interchanges cost model | Second criterion |
-| 3 | Fewest-stations search (0-1 BFS) | Third criterion |
+| 2 | ~~Fewest-interchanges cost model~~ **Done** | Second criterion |
+| 3 | ~~Fewest-stations search (0-1 BFS)~~ **Done** | Third criterion |
 | 4 | Planner | Routing layer complete |
 | 5 | Validator | Safe start-up |
 | 6 | Service layer | API |
@@ -62,7 +63,7 @@ build-backend = "uv_build"
 
 Nothing else needs them: pytest finds the `metro` folder through `pythonpath = ["."]`.
 
-**Check:** `uv sync` finishes, and `uv run pytest` reports 28 passed. Until this is fixed, run tests with `.venv/bin/python -m pytest` from `backend/`.
+**Check:** `uv sync` finishes, and `uv run pytest` reports 41 passed. Until this is fixed, run tests with `.venv/bin/python -m pytest` from `backend/`.
 
 ### Decide together before building further
 
@@ -87,7 +88,7 @@ Section 5 of `project context.md` uses names the code doesn't. Fix them there so
 | `graph.edges_of(node)` | `graph.neighbours(node_id)` |
 | `graph.nodes_of_station[...]` | `graph.nodes_for_station(station_id)` |
 | `graph.lines_at()`, `graph.is_interchange()` | Not written yet (Step 1 needs something like them) |
-| "expect 5 passed" | 28 passed |
+| "expect 5 passed" | 41 passed |
 
 ### Working habit from here on
 
@@ -109,21 +110,19 @@ Dijkstra returns edge IDs such as `['YELLOW_15', 'YELLOW_16', 'WALK_..._YELLOW_V
 
 **Check:** New Delhi → ITO gives 7 stations, lines Yellow then Violet, one interchange at Central Secretariat, 17.0 min, 6.8 km. Chandni Chowk → Rajiv Chowk gives 4 stations, 0 changes, 6.0 min, 2.9 km. Write both as tests.
 
-## Step 2: `InterchangePenaltyCost`
+## Step 2: `InterchangePenaltyCost` — done
 
-Add a second class to `cost_models.py`: it returns `travel_min`, plus 10,000 when `edge.kind == "walk"`. Passing it to the existing `dijkstra` gives the fewest-interchanges route with no change to the algorithm. The penalty is so large that the search avoids line changes first and uses time only to break ties.
+A second class in `cost_models.py`: it returns `travel_min`, plus 100,000 when `edge.kind == "walk"`. Passing it to the existing `dijkstra` gives the fewest-interchanges route with no change to the algorithm. The penalty is so large that the search avoids line changes first and uses time only to break ties.
 
-The route builder reads times from the edges, not from the cost model, so the 10,000 never reaches the user.
+Still to remember for Step 1: the route builder must read times from the edges, not from the cost model, so the 100,000 never reaches the user.
 
-**Check:** on a small hand-built graph, a slower route with no change beats a faster route with one.
+**Checked by:** three tests in `tests/test_dijkstra.py`. On the small hand-built graph, a 13-minute route with no change beats a 12-minute route with one.
 
-## Step 3: `routing/zero_one_bfs.py`
+## Step 3: `routing/zero_one_bfs.py` — done
 
-Fewest stations. Same shape as Dijkstra, but with a `collections.deque` in place of the heap: a ride costs 1 and goes to the back (`append`), a walk costs 0 and goes to the front (`appendleft`). Start from every node of the source station and stop at the first node of the destination, as Dijkstra does.
+Fewest stations. Same shape as Dijkstra, but with a `collections.deque` in place of the heap: a ride costs 1 and goes to the back (`append`), a walk costs 0 and goes to the front (`appendleft`). It starts from every node of the source station and stops at the first node of the destination, as Dijkstra does. Call it as `zero_one_bfs(graph, source_station, dest_station)`; it returns edge IDs like `dijkstra` does.
 
-A node can be reached more than once here, so skip it only when the new distance is no better than the one you already have.
-
-**Check:** New Delhi → ITO by fewest stations goes via Rajiv Chowk and Mandi House: 18.0 min, 3.6 km, 2 changes.
+**Checked by:** ten tests in `tests/test_zero_one_bfs.py`. New Delhi → ITO by fewest stations comes out as 4 rides and 2 changes in 18.0 min. The 3.6 km distance and the "via Rajiv Chowk and Mandi House" station list can only be checked once the route builder (Step 1) exists.
 
 ## Step 4: `routing/planner.py`
 
@@ -199,7 +198,7 @@ Calculate the fare from `total_distance_km` using the DMRC fare slabs, add it to
 - `pytest-cov`, aiming for at least 80% on `network` and `routing`.
 - A `hypothesis` test that builds random small graphs and compares Dijkstra with a brute-force search.
 
-Assignment 3 covers testing, so the test plan and what is already tested (28 tests) should be written up by 12 Oct even if some of this is still in progress.
+Assignment 3 covers testing, so the test plan and what is already tested (41 tests) should be written up by 12 Oct even if some of this is still in progress.
 
 ## Step 12: Map pan/zoom and station popup
 
