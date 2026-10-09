@@ -4,7 +4,7 @@ import pytest
 from metro.network.graph import MetroGraph
 from metro.network.loader import load_graph
 from metro.network.models import Edge, Line, Node, Station
-from metro.routing.cost_models import TimeCost
+from metro.routing.cost_models import InterchangePenaltyCost, TimeCost
 from metro.routing.dijkstra import dijkstra, trace_path
 
 
@@ -94,6 +94,21 @@ def test_trace_path_returns_edges_in_travel_order():
     assert trace_path(prev, "A") == []
 
 
+# --- fewest line changes -----------------------------------------------------
+
+def test_fewest_interchanges_avoids_line_change():
+    #blue all the way (13 min, no change) beats red then blue (12 min, 1 change)
+    graph = make_graph()
+    path = dijkstra(graph, InterchangePenaltyCost(), "A", "D")
+    assert path == ["BLUE_01", "BLUE_02"]
+    assert total_time(graph, path) == 13.0
+
+
+def test_fewest_interchanges_still_picks_faster_when_changes_are_equal():
+    #both ways need no change, so the faster one wins
+    assert dijkstra(make_graph(), InterchangePenaltyCost(), "A", "C") == ["RED_01", "RED_02"]
+
+
 # --- real data ---------------------------------------------------------------
 
 def test_real_chandni_chowk_to_rajiv_chowk():
@@ -109,3 +124,10 @@ def test_real_new_delhi_to_ito():
     path = dijkstra(graph, TimeCost(), "NEW_DELHI", "ITO")
     assert total_time(graph, path) == 17.0
     assert sum(graph.edge(edge_id).kind == "walk" for edge_id in path) == 1
+
+
+def test_real_new_delhi_to_ito_fewest_interchanges():
+    #the fastest route here already has the fewest changes, so both give the same answer
+    graph = load_graph()
+    path = dijkstra(graph, InterchangePenaltyCost(), "NEW_DELHI", "ITO")
+    assert path == dijkstra(graph, TimeCost(), "NEW_DELHI", "ITO")
