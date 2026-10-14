@@ -33,10 +33,10 @@ class Edge:
 
 @dataclass(frozen=True)
 class RouteResult:
-    stations: tuple[Station, ...]
+    stations: tuple[str, ...]  # station ids, in travel order
     criteria: tuple[str, ...]  # PEP 8: `tuple[str, ...]`
     edge_ids: tuple[str, ...]
-    lines: tuple[Line, ...]
-    interchanges: tuple[Station, ...]
+    lines: tuple[str, ...]  # line ids, in the order they are used
+    interchanges: tuple[str, ...]  # station ids where the rider changes line
     total_time_min: float  
     total_distance_km: float  
