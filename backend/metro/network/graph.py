@@ -131,8 +131,12 @@ class MetroGraph:
 
     @property
     def edges(self) -> tuple[Edge, ...]:
-        # one entry per connection, in the direction written in the CSV
+        """Every connection once, as written in the CSV (not the reversed copies)."""
         return tuple(self._edges.values())
+
+    def lines_at(self, station_id: str) -> tuple[str, ...]:
+        """Line ids serving a station, e.g. ("YELLOW", "BLUE") for Rajiv Chowk."""
+        return tuple(self.node(n).line_id for n in self.nodes_for_station(station_id))
 
     def find_station_by_name(self, name: str) -> Station | None:
         """Case-insensitive exact match on the station name, e.g. "rajiv chowk"."""

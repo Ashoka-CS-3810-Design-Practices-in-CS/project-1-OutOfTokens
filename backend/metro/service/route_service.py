@@ -14,53 +14,53 @@ class RouteError(Exception):
 
 
 class RouteService:
-    # checks requests and shapes the answers; the api layer only passes them through
+    """Sits between the API and the graph: checks requests and turns graph objects into plain data for the frontend."""
 
     def __init__(self, graph: MetroGraph) -> None:
-        self.graph = graph
-        self.planner = Planner(graph)
-        self.station_ids = {station.id for station in graph.stations}
+        self._graph = graph
+        self._planner = Planner(graph)
+        self._station_ids = {station.id for station in graph.stations}
 
     def find_routes(self, source: str, destination: str) -> dict:
         # {"status": "ok", "routes": [...]} or {"status": "no_path", "routes": []}
         # raises RouteError for a request that can't be answered
-        if source not in self.station_ids or destination not in self.station_ids:
+        if source not in self._station_ids or destination not in self._station_ids:
             raise RouteError("unknown_station")
         if source == destination:
             raise RouteError("same_station")
 
-        routes = self.planner.plan(source, destination)
+        routes = self._planner.plan(source, destination)
         if not routes:
             return {"status": "no_path", "routes": []}
         # asdict turns each RouteResult into a plain dictionary; its tuples become JSON arrays
         return {"status": "ok", "routes": [asdict(route) for route in routes]}
 
     def network_view(self) -> dict:
-        # everything the frontend needs to draw the map
-        return {
-            "stations": [
-                {
-                    "id": station.id,
-                    "name": station.name,
-                    "lat": station.lat,
-                    "lon": station.lon,
-                    "lines": [self.graph.node(n).line_id for n in self.graph.nodes_for_station(station.id)],
-                }
-                for station in self.graph.stations
-            ],
-            "lines": [
-                {"id": line.id, "name": line.name, "colour": line.colour}
-                for line in self.graph.lines
-            ],
-            # ride edges only (line changes are not drawn), with node ids turned into station ids
-            "edges": [
-                {
-                    "edge_id": edge.edge_id,
-                    "line_id": edge.line_id,
-                    "from_id": self.graph.node(edge.from_node).station_id,
-                    "to_id": self.graph.node(edge.to_node).station_id,
-                }
-                for edge in self.graph.edges
-                if edge.kind == "ride"
-            ],
-        }
+        """Everything the frontend needs to draw the map.
+
+        Only ride edges are included, with node ids swapped for station ids,
+        because walk edges stay inside one station and have nothing to draw.
+        """
+        graph = self._graph
+        stations = [
+            {
+                "id": s.id,
+                "name": s.name,
+                "lat": s.lat,
+                "lon": s.lon,
+                "lines": list(graph.lines_at(s.id)),
+            }
+            for s in sorted(graph.stations, key=lambda s: s.name.casefold())
+        ]
+        lines = [{"id": line.id, "name": line.name, "colour": line.colour} for line in graph.lines]
+        edges = [
+            {
+                "edge_id": e.edge_id,
+                "line_id": e.line_id,
+                "from_id": graph.node(e.from_node).station_id,
+                "to_id": graph.node(e.to_node).station_id,
+            }
+            for e in graph.edges
+            if e.kind == "ride"
+        ]
+        return {"stations": stations, "lines": lines, "edges": edges}
