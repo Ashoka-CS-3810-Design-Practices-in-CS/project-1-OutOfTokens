@@ -1,0 +1,147 @@
+:root {
+  --bg: #f4f2ee;
+  --panel: #ffffff;
+  --text: #1d2430;
+  --muted: #6b7280;
+  --border: #e3dfd8;
+
+  --map-outside: #eae7e1;
+  --map-neighbour: #f1eee8;
+  --map-neighbour-edge: #d6d1c8;
+  --map-delhi: #fbfaf7;
+  --map-delhi-edge: #b9b2a6;
+  --map-river: #9cc3dc;
+  --map-label: #a39d92;
+
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.panel {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 24px 20px;
+}
+
+.panel h1 {
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+}
+
+.panel-note {
+  color: var(--muted);
+  margin: 0;
+}
+
+.map-area {
+  position: relative;
+  min-width: 0;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metro-map {
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 32px);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.map-credit {
+  position: absolute;
+  right: 24px;
+  bottom: 20px;
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+/* background map */
+.map-water {
+  fill: var(--map-outside);
+}
+
+.basemap-neighbour {
+  fill: var(--map-neighbour);
+  stroke: var(--map-neighbour-edge);
+  stroke-width: 0.8;
+  stroke-dasharray: 3 3;
+}
+
+.basemap-delhi {
+  fill: var(--map-delhi);
+  stroke: var(--map-delhi-edge);
+  stroke-width: 1.4;
+}
+
+.basemap-river {
+  fill: none;
+  stroke: var(--map-river);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.basemap-label {
+  fill: var(--map-label);
+  font-size: 13px;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.basemap-label-state {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+}
+
+.basemap-label-river {
+  fill: var(--map-river);
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* phones and narrow windows: panel above the map */
+@media (max-width: 700px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .map-area {
+    padding: 16px;
+    align-items: flex-start;
+  }
+
+  .map-credit {
+    right: 28px;
+    bottom: auto;
+    top: calc(16px + (100vw - 32px) * 0.75 + 4px);
+  }
+}
