@@ -48,9 +48,38 @@ body {
   margin: 0 0 8px;
 }
 
-.panel-note {
-  color: var(--muted);
-  margin: 0;
+.station-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.station-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.station-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-dots {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.line-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 .map-area {

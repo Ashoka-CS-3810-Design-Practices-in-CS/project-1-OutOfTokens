@@ -1,3 +1,23 @@
+export interface Line {
+  id: string
+  name: string
+  colour: string
+}
+
+export interface Station {
+  id: string
+  name: string
+  lat: number
+  lon: number
+  lines: string[] // line IDs, e.g. ["YELLOW", "BLUE"] for Rajiv Chowk
+}
+
+// what GET /api/network will return (the ride edges get added once the map draws lines)
+export interface Network {
+  stations: Station[]
+  lines: Line[]
+}
+
 // a point as [longitude, latitude], the order GeoJSON uses
 export type LonLat = [number, number]
 
