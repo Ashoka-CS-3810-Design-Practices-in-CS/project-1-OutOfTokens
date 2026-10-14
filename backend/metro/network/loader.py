@@ -1,4 +1,5 @@
 import csv
+import hashlib
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import TypeVar
@@ -12,6 +13,9 @@ DEFAULT_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 T = TypeVar("T")
 
+# the files that make up the network, in the order they are read and hashed
+DATA_FILES = ("lines.csv", "stations.csv", "nodes.csv", "edges.csv")
+
 
 def load_graph(data_dir: str | Path = DEFAULT_DATA_DIR) -> MetroGraph:
     """Read the four CSVs in `data_dir` and build a MetroGraph.
@@ -21,7 +25,7 @@ def load_graph(data_dir: str | Path = DEFAULT_DATA_DIR) -> MetroGraph:
     this module only parses the files and converts the types.
     """
     data_dir = Path(data_dir)
-    lines = _read(data_dir / "lines.csv", {"id", "name", "colour"}, _parse_line)
+    lines = _read(data_dir / "lines.csv", {"id", "name", "colour", "avg_speed_kmh"}, _parse_line)
     stations = _read(data_dir / "stations.csv", {"id", "name", "lat", "lon"}, _parse_station)
     nodes = _read(data_dir / "nodes.csv", {"node_id", "station_id", "line_id"}, _parse_node)
     edges = _read(
@@ -30,6 +34,18 @@ def load_graph(data_dir: str | Path = DEFAULT_DATA_DIR) -> MetroGraph:
         _parse_edge,
     )
     return MetroGraph(stations=stations, lines=lines, nodes=nodes, edges=edges)
+
+
+def data_version(data_dir: str | Path = DEFAULT_DATA_DIR) -> str:
+    """A short hash of the four CSVs, so the frontend can tell which data the backend is serving.
+
+    Any edit to any data file gives a different value.
+    """
+    digest = hashlib.sha256()
+    for name in DATA_FILES:
+        digest.update(name.encode())
+        digest.update((Path(data_dir) / name).read_bytes())
+    return digest.hexdigest()[:16]
 
 
 def _read(path: Path, required: set[str], parse: Callable[[dict[str, str]], T]) -> list[T]:
@@ -60,7 +76,10 @@ def _rows(reader: csv.DictReader) -> Iterator[dict[str, str]]:
 
 
 def _parse_line(row: dict[str, str]) -> Line:
-    return Line(id=_required(row, "id"), name=_required(row, "name"), colour=_required(row, "colour"))
+    speed = _float(row, "avg_speed_kmh")
+    if speed <= 0:
+        raise ValueError(f"'avg_speed_kmh' must be positive, got {speed}")
+    return Line(id=_required(row, "id"), name=_required(row, "name"), colour=_required(row, "colour"), avg_speed_kmh=speed)
 
 
 def _parse_station(row: dict[str, str]) -> Station:

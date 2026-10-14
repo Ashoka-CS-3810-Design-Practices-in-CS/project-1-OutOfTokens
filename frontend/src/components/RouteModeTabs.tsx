@@ -9,14 +9,16 @@ interface RouteModeTabsProps {
 
 const modes: { id: RouteMode; label: string }[] = [
   { id: 'fastest', label: 'Fastest' },
-  { id: 'fewest-changes', label: 'Minimum interchanges' },
+  { id: 'fewest_stations', label: 'Minimum stations' },
+  { id: 'fewest_interchanges', label: 'Minimum interchanges' },
 ]
 
 // picks what the route should be optimised for
 export default function RouteModeTabs({ value, onChange }: RouteModeTabsProps) {
   return (
     <Tabs
-      className="route-mode-tabs"
+      className="route-mode-tabs w-full"
+      variant="secondary"
       selectedKey={value}
       onSelectionChange={(key: Key) => onChange(key as RouteMode)}
     >

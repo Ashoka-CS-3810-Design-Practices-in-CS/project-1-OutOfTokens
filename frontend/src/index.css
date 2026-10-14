@@ -16,6 +16,9 @@
   --map-river: #9cc3dc;
   --map-label: #a39d92;
 
+  --error: #b42318;
+  --focus-ring: #2563eb;
+
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -32,14 +35,16 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  min-height: 100vh;
+  grid-template-columns: 420px minmax(0, 1fr);
+  /* fixed to the screen, so a long station list scrolls the panel instead of growing the page and moving the map */
+  height: 100vh;
 }
 
 .panel {
   background: var(--panel);
   border-right: 1px solid var(--border);
   padding: 24px 20px;
+  overflow-y: auto;
 }
 
 .panel h1 {
@@ -55,18 +60,95 @@ body {
   margin-top: 20px;
 }
 
+.find-route {
+  margin-top: 20px;
+}
+
+.reset-route {
+  margin-top: 8px;
+}
+
 .route-mode-tabs {
   margin-top: 20px;
 }
 
-/* roomier than HeroUI's default (4px around the bar, 32px tall tabs, 16px side padding) */
-.route-mode-tabs .tabs__list {
-  padding: 6px;
+.route-details {
+  margin-top: 16px;
 }
 
+.route-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.route-stats dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.route-stats dd {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* the stops, as coloured rings joined by a line in each metro line's colour */
+.route-legs,
+.route-legs ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.route-legs {
+  margin-top: 20px;
+}
+
+.route-stop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding-left: 30px;
+  font-weight: 600;
+}
+
+.route-stop-dot {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border: 2.5px solid var(--line-colour);
+  border-radius: 50%;
+  background: var(--panel);
+  z-index: 1;
+}
+
+/* the line down to the next stop on the same leg */
+.route-stop:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  height: 100%;
+  width: 2.5px;
+  background: var(--line-colour);
+}
+
+/* smaller than HeroUI's default (32px tall, 16px side padding, 14px text) so all three fit in one row;
+   tabs size to their label and share any spare width instead of all being forced equal */
 .route-mode-tabs .tabs__tab {
-  height: 40px;
-  padding-inline: 20px;
+  height: 28px;
+  width: auto;
+  flex: 1 1 auto;
+  padding-inline: 10px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
 }
 
 .station-option {
@@ -105,6 +187,11 @@ body {
   justify-content: center;
 }
 
+.metro-map-wrap {
+  position: relative;
+  width: 100%;
+}
+
 .metro-map {
   width: 100%;
   height: auto;
@@ -112,6 +199,103 @@ body {
   border-radius: 12px;
   border: 1px solid var(--border);
   display: block;
+  cursor: grab;
+  /* lets a finger drag the map instead of scrolling the page */
+  touch-action: none;
+  user-select: none;
+}
+
+.metro-map:active {
+  cursor: grabbing;
+}
+
+/* zoom in, zoom out and reset view, top right of the map */
+.map-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+}
+
+.map-button {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.map-button:focus-visible,
+.station-popup-close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* the clicked station's details, top left of the map */
+.station-popup {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: min(260px, calc(100% - 24px));
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
+
+.station-popup-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.station-popup h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.station-popup-close {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.station-popup-kind {
+  margin: 4px 0 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.station-popup-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.station-popup-lines li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .map-credit {
@@ -121,6 +305,99 @@ body {
   margin: 0;
   font-size: 0.7rem;
   color: var(--muted);
+}
+
+/* hints, loading and errors in the panel */
+.status-message {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.status-message p {
+  margin: 0 0 8px;
+}
+
+.status-error {
+  color: var(--error);
+}
+
+/* ER2 / ER3 under a station field */
+.field-error {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--error);
+}
+
+/* metro lines and stations */
+.metro-edges line {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+/* once routes are shown: the rest of the network goes thin */
+.metro-edges-unused line {
+  stroke: #c9c4bb; /* CSS beats the line-colour stroke attribute */
+  stroke-width: 1;
+}
+
+/* every route is drawn wide; the selected tab's route at full colour */
+.route-edge {
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+/* the other tabs' routes: same width as the selected one, faded */
+.route-edge-faded {
+  opacity: 0.3;
+}
+
+.station {
+  fill: #ffffff;
+  stroke: var(--text);
+  stroke-width: 0.8;
+}
+
+.station-interchange {
+  stroke-width: 1.4;
+}
+
+.station-chosen {
+  fill: var(--text);
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+/* the same size on screen at any zoom: --zoom is set on the map layer by d3-zoom */
+.station-hit {
+  fill: transparent;
+  cursor: pointer;
+  r: calc(7px / var(--zoom, 1));
+}
+
+.station-node {
+  outline: none;
+}
+
+/* keyboard focus on a station: a blue ring around its dot */
+.station-node:focus-visible .station {
+  stroke: var(--focus-ring);
+  stroke-width: 2;
+}
+
+/* name shown above the station under the mouse; the white outline keeps it readable over lines */
+.station-label {
+  fill: var(--text);
+  font-weight: 600;
+  font-size: calc(13px / var(--zoom, 1));
+  stroke-width: calc(3.5px / var(--zoom, 1));
+  transform: translateY(calc(-9px / var(--zoom, 1)));
+  text-anchor: middle;
+  stroke: #ffffff;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* background map */
@@ -174,11 +451,14 @@ body {
   .app {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr;
+    height: auto;
+    min-height: 100vh;
   }
 
   .panel {
     border-right: none;
     border-bottom: 1px solid var(--border);
+    overflow-y: visible;
   }
 
   .map-area {

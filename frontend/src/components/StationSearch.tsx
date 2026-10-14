@@ -1,70 +1,119 @@
-import { Autocomplete, EmptyState, Label, ListBox, SearchField, useFilter } from '@heroui/react'
+import { Autocomplete, EmptyState, Label, ListBox, SearchField } from '@heroui/react'
 import type { Key } from '@heroui/react'
-import type { Line, Station } from '../types'
+import { useRef, useState } from 'react'
+import { MESSAGES } from '../messages'
+import { MAX_QUERY_LENGTH } from '../stationIndex'
+import type { Line } from '../types'
+import { useRouteStore } from '../useRouteStore'
 
 interface StationSearchProps {
   label: string
   placeholder: string
-  stations: Station[]
-  lines: Map<string, Line>
   value: string | null
   onChange: (stationId: string | null) => void
-  // the station picked in the other field, so the same one can't be chosen twice
-  excludeId?: string | null
+  // the station picked in the other field; choosing it here is refused with ER3
+  otherId: string | null
 }
 
-// a searchable list of stations; a station can only be chosen from the list
-export default function StationSearch({
-  label,
-  placeholder,
-  stations,
-  lines,
-  value,
-  onChange,
-  excludeId,
-}: StationSearchProps) {
-  // "base" ignores case and accents, so "rajiv" finds "Rajiv Chowk"
-  const { contains } = useFilter({ sensitivity: 'base' })
+// a search box with up to 8 suggestions; a station can only be set by choosing one
+export default function StationSearch({ label, placeholder, value, onChange, otherId }: StationSearchProps) {
+  const index = useRouteStore((s) => s.index)
+  const lines = useRouteStore((s) => s.linesById)
+  const [query, setQuery] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  // set when a suggestion is picked, so closing the list afterwards isn't treated as "typed but didn't choose"
+  const chose = useRef(false)
+
+  // Reset (or anything else) clearing the station also clears this field's message
+  const [prevValue, setPrevValue] = useState(value)
+  if (value !== prevValue) {
+    setPrevValue(value)
+    if (value === null) setError(null)
+  }
+
+  const suggestions = index?.search(query) ?? []
+  const selected = value ? index?.get(value) : undefined
+
+  function choose(key: Key | null) {
+    chose.current = true
+    if (key === null) {
+      setError(null)
+      onChange(null)
+      return
+    }
+    const id = String(key)
+    if (id === otherId) {
+      setError(MESSAGES.sameStation) // ER3: the field keeps its current station
+      return
+    }
+    setError(null)
+    onChange(id)
+  }
+
+  function openChange(isOpen: boolean) {
+    if (isOpen) {
+      chose.current = false
+      return
+    }
+    // ER2: text was typed but no suggestion chosen
+    if (!chose.current && query.trim()) setError(MESSAGES.chooseFromList)
+    setQuery('')
+  }
 
   return (
-    <Autocomplete
-      className="station-search"
-      fullWidth
-      placeholder={placeholder}
-      selectionMode="single"
-      value={value}
-      onChange={(key: Key | null) => onChange(key === null ? null : String(key))}
-      disabledKeys={excludeId ? [excludeId] : []}
-    >
-      <Label>{label}</Label>
-      <Autocomplete.Trigger>
-        <Autocomplete.Value />
-        <Autocomplete.ClearButton />
-        <Autocomplete.Indicator />
-      </Autocomplete.Trigger>
-      <Autocomplete.Popover>
-        <Autocomplete.Filter filter={contains}>
-          <SearchField autoFocus name="search" aria-label={`Search ${label.toLowerCase()} station`}>
-            <SearchField.Group>
-              <SearchField.SearchIcon />
-              <SearchField.Input placeholder="Type a station name" />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
-          <ListBox renderEmptyState={() => <EmptyState>No station matches that name</EmptyState>}>
-            {stations.map((station) => (
-              <ListBox.Item key={station.id} id={station.id} textValue={station.name}>
-                <span className="station-option">
-                  <span className="station-option-name">{station.name}</span>
-                  <LineDots lineIds={station.lines} lines={lines} />
-                </span>
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </Autocomplete.Filter>
-      </Autocomplete.Popover>
-    </Autocomplete>
+    <div className="station-search-field">
+      <Autocomplete
+        className="station-search"
+        fullWidth
+        placeholder={placeholder}
+        selectionMode="single"
+        value={value}
+        onChange={choose}
+        onClear={() => choose(null)}
+        onOpenChange={openChange}
+        isInvalid={error !== null}
+        isDisabled={!index}
+      >
+        <Label>{label}</Label>
+        <Autocomplete.Trigger>
+          {/* the name comes from the index, since the chosen station may not be in the current suggestions */}
+          <Autocomplete.Value>{() => selected?.name ?? placeholder}</Autocomplete.Value>
+          <Autocomplete.ClearButton />
+          <Autocomplete.Indicator />
+        </Autocomplete.Trigger>
+        <Autocomplete.Popover>
+          <Autocomplete.Filter inputValue={query} onInputChange={setQuery}>
+            <SearchField autoFocus name="search" aria-label={`Search ${label.toLowerCase()} station`}>
+              <SearchField.Group>
+                <SearchField.SearchIcon />
+                <SearchField.Input placeholder="Type a station name" maxLength={MAX_QUERY_LENGTH} />
+                <SearchField.ClearButton />
+              </SearchField.Group>
+            </SearchField>
+            <ListBox
+              renderEmptyState={() => (
+                <EmptyState>{query.trim() ? MESSAGES.noMatch : 'Start typing a station name'}</EmptyState>
+              )}
+            >
+              {suggestions.map((station) => (
+                <ListBox.Item key={station.id} id={station.id} textValue={station.name}>
+                  <span className="station-option">
+                    <span className="station-option-name">{station.name}</span>
+                    <LineDots lineIds={station.lines} lines={lines} />
+                  </span>
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Autocomplete.Filter>
+        </Autocomplete.Popover>
+      </Autocomplete>
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 

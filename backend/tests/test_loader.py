@@ -77,3 +77,18 @@ def test_missing_column_raises(data_copy: Path):
     path.write_text(text, encoding="utf-8")
     with pytest.raises(GraphError, match=r"lines\.csv: missing column\(s\) \['colour'\]"):
         load_graph(data_copy)
+
+
+def test_data_version_changes_when_a_file_changes(data_copy: Path):
+    from metro.network.loader import data_version
+
+    before = data_version(data_copy)
+    assert before == data_version(data_copy)  # same files, same hash
+    _append(data_copy / "lines.csv", "TEST,Test Line,#000000,35")
+    assert data_version(data_copy) != before
+
+
+def test_line_speed_must_be_positive(data_copy: Path):
+    _append(data_copy / "lines.csv", "TEST,Test Line,#000000,0")
+    with pytest.raises(GraphError, match="lines.csv line .*avg_speed_kmh"):
+        load_graph(data_copy)

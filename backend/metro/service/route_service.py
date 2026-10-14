@@ -16,8 +16,9 @@ class RouteError(Exception):
 class RouteService:
     """Sits between the API and the graph: checks requests and turns graph objects into plain data for the frontend."""
 
-    def __init__(self, graph: MetroGraph) -> None:
+    def __init__(self, graph: MetroGraph, data_version: str = "") -> None:
         self._graph = graph
+        self._data_version = data_version  # hash of the CSVs the graph was loaded from
         self._planner = Planner(graph)
         self._station_ids = {station.id for station in graph.stations}
 
@@ -52,7 +53,10 @@ class RouteService:
             }
             for s in sorted(graph.stations, key=lambda s: s.name.casefold())
         ]
-        lines = [{"id": line.id, "name": line.name, "colour": line.colour} for line in graph.lines]
+        lines = [
+            {"id": line.id, "name": line.name, "colour": line.colour, "avg_speed_kmh": line.avg_speed_kmh}
+            for line in graph.lines
+        ]
         edges = [
             {
                 "edge_id": e.edge_id,
@@ -63,4 +67,4 @@ class RouteService:
             for e in graph.edges
             if e.kind == "ride"
         ]
-        return {"stations": stations, "lines": lines, "edges": edges}
+        return {"data_version": self._data_version, "stations": stations, "lines": lines, "edges": edges}

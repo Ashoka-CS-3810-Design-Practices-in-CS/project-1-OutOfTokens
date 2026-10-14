@@ -1,54 +1,27 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite app: station search, route panel and an SVG map of the network. See the [project README](../README.md) for the full picture.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+npm install
+npm run dev      # http://localhost:5173 (the backend must be running on :8000)
+npm run lint
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Copy `.env.example` to `.env.local` to point the app at a different backend (`VITE_API_URL`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Structure
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+| File | Does |
+|---|---|
+| `src/apiClient.ts` | The only module that makes network requests. 5 s timeout, cancellable, and failures come back as short error codes. |
+| `src/routeStore.ts` | Zustand store (plain TypeScript, no React): network, chosen stations, routes, selected route, request status. Stale replies are ignored. |
+| `src/stationIndex.ts` | Station search (plain TypeScript): names starting with the query first, then names containing it, at most 8. |
+| `src/mapGeometry.ts` | Projects lat/lon into SVG coordinates (plain TypeScript). |
+| `src/messages.ts` | Every user-facing error message (ER1–ER9). |
+| `src/components/` | `StationSearch`, `RouteModeTabs`, `RouteDetails`, `MetroMap` (pan/zoom with d3-zoom), `StationPopup`, `BaseMap`. |
+
+ESLint enforces that `routeStore`, `stationIndex` and `mapGeometry` import no React (and the first two no D3), and that only `apiClient` calls `fetch`.

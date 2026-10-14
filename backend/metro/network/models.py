@@ -14,6 +14,7 @@ class Line:
     id: str
     name: str
     colour: str  
+    avg_speed_kmh: float | None = None  # from lines.csv; None in hand-built test graphs
 
 @dataclass(frozen=True)
 class Node:

@@ -40,3 +40,31 @@ export function toPath(points: LonLat[], closed: boolean): string {
   })
   return parts.join('') + (closed ? 'Z' : '')
 }
+
+// the part of the SVG on screen, in SVG coordinates
+export interface View {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export const FULL_VIEW: View = { x: 0, y: 0, width: MAP_WIDTH, height: MAP_HEIGHT }
+
+// a view centred on the given points that fits all of them with some margin,
+// keeping the map's 4:3 shape so the SVG doesn't change size on screen
+export function viewAround(points: Point[], margin = 30): View {
+  if (points.length === 0) return FULL_VIEW
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const ratio = MAP_WIDTH / MAP_HEIGHT
+  let width = maxX - minX + 2 * margin
+  let height = maxY - minY + 2 * margin
+  if (width / height > ratio) height = width / ratio
+  else width = height * ratio
+  return { x: (minX + maxX - width) / 2, y: (minY + maxY - height) / 2, width, height }
+}
