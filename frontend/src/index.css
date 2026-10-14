@@ -55,6 +55,20 @@ body {
   margin-top: 20px;
 }
 
+.route-mode-tabs {
+  margin-top: 20px;
+}
+
+/* roomier than HeroUI's default (4px around the bar, 32px tall tabs, 16px side padding) */
+.route-mode-tabs .tabs__list {
+  padding: 6px;
+}
+
+.route-mode-tabs .tabs__tab {
+  height: 40px;
+  padding-inline: 20px;
+}
+
 .station-option {
   display: flex;
   align-items: center;

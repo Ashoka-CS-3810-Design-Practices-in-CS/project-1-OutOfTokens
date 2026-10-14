@@ -38,3 +38,6 @@ export interface Basemap {
   neighbours: BasemapRegion[]
   rivers: BasemapRiver[]
 }
+
+// which route the planner looks for; names match the backend routes
+export type RouteMode = 'fastest' | 'fewest-changes'
