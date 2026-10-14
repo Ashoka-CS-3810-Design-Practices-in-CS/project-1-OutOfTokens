@@ -129,6 +129,11 @@ class MetroGraph:
     def lines(self) -> tuple[Line, ...]:
         return tuple(self._lines.values())
 
+    @property
+    def edges(self) -> tuple[Edge, ...]:
+        # one entry per connection, in the direction written in the CSV
+        return tuple(self._edges.values())
+
     def find_station_by_name(self, name: str) -> Station | None:
         """Case-insensitive exact match on the station name, e.g. "rajiv chowk"."""
         wanted = name.strip().casefold()
