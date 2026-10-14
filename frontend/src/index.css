@@ -1,3 +1,6 @@
+/* HeroUI components, plus Tailwind which it is built on */
+@import "@heroui/styles";
+
 :root {
   --bg: #f4f2ee;
   --panel: #ffffff;
@@ -41,6 +44,7 @@ body {
 
 .panel h1 {
   font-size: 1.25rem;
+  font-weight: 600;
   margin: 0 0 8px;
 }
 
