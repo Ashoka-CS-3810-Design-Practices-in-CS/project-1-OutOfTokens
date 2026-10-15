@@ -67,6 +67,7 @@ export default function StationSearch({ label, placeholder, value, onChange, oth
         fullWidth
         placeholder={placeholder}
         selectionMode="single"
+        allowsEmptyCollection // open on click even before anything is typed, showing "Start typing a station name"
         value={value}
         onChange={choose}
         onClear={() => choose(null)}
