@@ -67,6 +67,8 @@ export default function StationSearch({ label, placeholder, value, onChange, oth
         fullWidth
         placeholder={placeholder}
         selectionMode="single"
+        // the list is empty until something is typed, and Select won't open on an empty list otherwise
+        allowsEmptyCollection
         value={value}
         onChange={choose}
         onClear={() => choose(null)}

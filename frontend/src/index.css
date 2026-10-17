@@ -400,6 +400,12 @@ body {
   user-select: none;
 }
 
+/* interchanges on the selected route: named too, but quieter than the start and end */
+.station-label-interchange {
+  font-weight: 500;
+  font-size: calc(11px / var(--zoom, 1));
+}
+
 /* background map */
 .map-water {
   fill: var(--map-outside);

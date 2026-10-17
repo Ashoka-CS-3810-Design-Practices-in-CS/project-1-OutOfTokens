@@ -12,6 +12,8 @@ import StationPopup from './StationPopup'
 // how far in and out the map can zoom, as the width of the visible area in SVG units
 const MIN_VIEW_WIDTH = 80
 const MAX_VIEW_WIDTH = MAP_WIDTH * 1.5
+// how much closer the starting view is than one that fits every station
+const HOME_ZOOM = 1.25
 
 // the map: Delhi in the background, then every metro line, then the stations on top.
 // d3-zoom pans and zooms it (drag, wheel, pinch, buttons) by moving one <g>, so React never re-renders for it.
@@ -32,8 +34,13 @@ export default function MetroMap() {
     () => new Map((network?.edges ?? []).map((edge) => [edge.edge_id, edge])),
     [network],
   )
-  // the starting view: the metro network, not the whole background
-  const homeView = useMemo(() => viewAround([...points.values()]), [points])
+  // the starting view: the middle of the metro network, slightly cropped so the dense centre is easier to read
+  const homeView = useMemo(() => {
+    const fit = viewAround([...points.values()])
+    const width = fit.width / HOME_ZOOM
+    const height = fit.height / HOME_ZOOM
+    return { x: fit.x + (fit.width - width) / 2, y: fit.y + (fit.height - height) / 2, width, height }
+  }, [points])
   // multiplies SVG units into "full map" units, so labels and hit areas keep the same size on screen
   const baseScale = MAP_WIDTH / homeView.width
 
@@ -53,6 +60,19 @@ export default function MetroMap() {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const hoveredStation = network?.stations.find((s) => s.id === hoveredId)
   const hovered = hoveredStation && { name: hoveredStation.name, ...points.get(hoveredStation.id)! }
+
+  // the selected route's start, end and interchanges are always named; the hovered station already has its own label
+  const routeStart = selectedRoute?.stations[0]
+  const routeEnd = selectedRoute?.stations[selectedRoute.stations.length - 1]
+  const routeStops = selectedRoute ? [routeStart, ...selectedRoute.interchanges, routeEnd] : []
+  const routeLabels = [...new Set(routeStops)]
+    .filter((id) => id !== hoveredId)
+    .flatMap((id) => {
+      const station = network?.stations.find((s) => s.id === id)
+      const point = id ? points.get(id) : undefined
+      if (!station || !point) return []
+      return [{ id: station.id, name: station.name, end: id === routeStart || id === routeEnd, ...point }]
+    })
 
   const svgRef = useRef<SVGSVGElement>(null)
   const layerRef = useRef<SVGGElement>(null)
@@ -188,6 +208,19 @@ export default function MetroMap() {
                 </g>
               )
             })}
+          </g>
+
+          <g className="route-labels">
+            {routeLabels.map((label) => (
+              <text
+                key={label.id}
+                className={label.end ? 'station-label' : 'station-label station-label-interchange'}
+                x={label.x}
+                y={label.y}
+              >
+                {label.name}
+              </text>
+            ))}
           </g>
 
           {hovered && (
