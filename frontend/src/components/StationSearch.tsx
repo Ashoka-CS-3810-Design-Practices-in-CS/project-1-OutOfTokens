@@ -111,7 +111,7 @@ export default function StationSearch({ label, placeholder, value, onChange, oth
         </Autocomplete.Popover>
       </Autocomplete>
       {error && (
-        <p className="field-error" role="alert">
+        <p className="station-field-error" role="alert">
           {error}
         </p>
       )}

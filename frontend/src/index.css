@@ -323,7 +323,8 @@ body {
 }
 
 /* ER2 / ER3 under a station field */
-.field-error {
+/* not called .field-error: HeroUI has its own .field-error, hidden unless switched on, which would hide this */
+.station-field-error {
   margin: 4px 0 0;
   font-size: 0.8rem;
   color: var(--error);
