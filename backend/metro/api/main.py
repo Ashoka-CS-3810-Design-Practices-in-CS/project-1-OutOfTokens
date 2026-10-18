@@ -5,12 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from ..network.loader import data_version, load_graph
+from ..network.validator import validate
 from ..service.route_service import RouteError, RouteService
 from .schemas import ErrorOut, NetworkOut, RouteRequest, RouteResponse
 
-# Load the graph once when the server starts. If the CSVs are broken,
-# load_graph raises and the server refuses to start.
-service = RouteService(load_graph(), data_version())
+# Load and check the graph once when the server starts. If the CSVs are broken,
+# load_graph or validate raises and the server refuses to start.
+graph = load_graph()
+validate(graph)
+service = RouteService(graph, data_version())
 
 app = FastAPI(title="Delhi Metro Route Planner")
 

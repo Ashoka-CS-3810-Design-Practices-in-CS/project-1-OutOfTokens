@@ -8,7 +8,7 @@ Last updated: 18 Oct 2026.
 
 | Layer | Checks | Result | Command |
 |---|---|---|---|
-| Backend (Python) | 139 | All pass, 100% of backend lines run | `cd backend && uv run pytest` |
+| Backend (Python) | 147 | All pass, 100% of backend lines run | `cd backend && uv run pytest` |
 | Website logic (TypeScript) | 41 | All pass | `cd frontend && npm test` |
 | Whole app in Chrome | 11 | All pass | `cd frontend && npm run test:e2e` |
 
@@ -17,7 +17,7 @@ Last updated: 18 Oct 2026.
 ```bash
 # backend checks, from backend/
 uv sync
-uv run pytest                                      # all 139
+uv run pytest                                      # all 147
 uv run pytest --cov=metro --cov-report=term-missing   # with coverage: which lines were run
 
 # website checks, from frontend/
@@ -37,6 +37,7 @@ The Chrome tests use the Chrome already installed on the computer, so nothing ex
 | `test_graph.py` | 9 | The network structure stores stations, lines, platforms and track pieces, and every track piece works in both directions. |
 | `test_loader.py` | 11 | The four CSV files are read correctly, and a missing file, a missing column, a bad number or a duplicate is reported with the file and line. |
 | `test_bad_data.py` | 15 | Every check that refuses broken data actually fires: duplicates, references to things that don't exist, a ride joining two lines, a line change joining two stations, zero or negative times, an empty name. |
+| `test_validator.py` | 8 | The start-up data check (`network/validator.py`) passes the real data and reports, all at once: a line change with a distance, an interchange missing one of its line changes (including a real one at Kashmere Gate), and platforms cut off from the rest of the network. |
 | `test_dijkstra.py` | 13 | The fastest and fewest-changes searches, on a small hand-built map and on the real one. |
 | `test_zero_one_bfs.py` | 10 | The fewest-stations search, including the case that line changes must not count as stations. |
 | `test_route_builder.py` | 11 | A search result becomes the right stations, lines, change stations and totals, including when the track pieces are listed against the direction of travel. |
@@ -53,6 +54,7 @@ Coverage measures which lines of backend code the checks actually run.
 
 - **Before this round:** 96%. The untested 4% was almost all the safety checks that refuse broken data. Most had never been tried.
 - **After adding `test_bad_data.py`:** 100% of the 434 lines in `backend/metro/`.
+- **After adding the start-up data check and `test_validator.py`:** still 100%, now of 467 lines.
 
 100% means every line runs at least once during the checks. It does not prove every line is right, which is what the hand-checked trips and the random maps are for.
 
